@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """The Photon main part."""
+
 from __future__ import print_function
 
 import argparse
@@ -178,10 +179,10 @@ if main_inp.startswith('http'):
     main_url = main_inp
 else:
     try:
-        requests.get('https://' + main_inp, proxies=random.choice(proxies))
+        requests.get(f'https://{main_inp}', proxies=random.choice(proxies))
         main_url = 'https://' + main_inp
     except:
-        main_url = 'http://' + main_inp
+        main_url = f'http://{main_inp}'
 
 schema = main_url.split('//')[0] # https: or http:?
 # Adding the root URL to internal for crawling
@@ -199,7 +200,7 @@ except:
 if args.user_agent:
     user_agents = args.user_agent.split(',')
 else:
-    with open(sys.path[0] + '/core/user-agents.txt', 'r') as uas:
+    with open(f'{sys.path[0]}/core/user-agents.txt', 'r') as uas:
         user_agents = [agent.strip('\n') for agent in uas]
 
 
@@ -210,8 +211,7 @@ def intel_extractor(url, response):
     for rintel in rintels:
         res = re.sub(r'<(script).*?</\1>(?s)', '', response)
         res = re.sub(r'<[^<]+?>', '', res)
-        matches = rintel[0].findall(res)
-        if matches:
+        if matches := rintel[0].findall(res):
             for match in matches:
                 verb('Intel', match)
                 bad_intel.add((match, rintel[1], url))
@@ -227,14 +227,10 @@ def js_extractor(response):
         bad_scripts.add(match)
 
 def remove_file(url):
-    if url.count('/') > 2:
-        replacable = re.search(r'/[^/]*?$', url).group()
-        if replacable != '/':
-            return url.replace(replacable, '')
-        else:
-            return url
-    else:
+    if url.count('/') <= 2:
         return url
+    replacable = re.search(r'/[^/]*?$', url).group()
+    return url.replace(replacable, '') if replacable != '/' else url
 
 def extractor(url):
     """Extract details from the response body."""
@@ -257,7 +253,7 @@ def extractor(url):
             elif link[:2] == '//':
                 if link.split('/')[2].startswith(host):
                     verb('Internal page', link)
-                    internal.add(schema + '://' + link)
+                    internal.add(f'{schema}://{link}')
                 else:
                     verb('External page', link)
                     external.add(link)
@@ -267,12 +263,14 @@ def extractor(url):
             else:
                 verb('Internal page', link)
                 usable_url = remove_file(url)
-                if usable_url.endswith('/'):
-                    internal.add(usable_url + link)
-                elif link.startswith('/'):
+                if (
+                    usable_url.endswith('/')
+                    or not usable_url.endswith('/')
+                    and link.startswith('/')
+                ):
                     internal.add(usable_url + link)
                 else:
-                    internal.add(usable_url + '/' + link)
+                    internal.add(f'{usable_url}/{link}')
 
     if not only_urls:
         intel_extractor(url, response)
@@ -284,7 +282,7 @@ def extractor(url):
         for match in matches:
             if entropy(match) >= 4:
                 verb('Key', match)
-                keys.add(url + ': ' + match)
+                keys.add(f'{url}: {match}')
 
 
 def jscanner(url):
@@ -297,7 +295,7 @@ def jscanner(url):
         # Combining the items because one of them is always empty
         match = match[0] + match[1]
         # Making sure it's not some JavaScript code
-        if not re.search(r'[}{><"\']', match) and not match == '/':
+        if not re.search(r'[}{><"\']', match) and match != '/':
             verb('JS endpoint', match)
             endpoints.add(match)
 
@@ -336,7 +334,7 @@ if not only_urls:
         elif match.startswith('/') and not match.startswith('//'):
             scripts.add(main_url + match)
         elif not match.startswith('http') and not match.startswith('//'):
-            scripts.add(main_url + '/' + match)
+            scripts.add(f'{main_url}/{match}')
     # Step 3. Scan the JavaScript files for endpoints
     print('%s Crawling %i JavaScript files' % (run, len(scripts)))
     flash(jscanner, scripts, thread_count)
@@ -348,17 +346,12 @@ if not only_urls:
     for match, intel_name, url in bad_intel:
         if isinstance(match, tuple):
             for x in match:  # Because "match" is a tuple
-                if x != '':  # If the value isn't empty
-                    if intel_name == "CREDIT_CARD":
-                        if not luhn(match):
-                            # garbage number
-                            continue
+                if x != '' and (intel_name != "CREDIT_CARD" or luhn(match)):
                     intel.add("%s:%s" % (intel_name, x))
+        elif intel_name == "CREDIT_CARD" and not luhn(match):
+            # garbage number
+            continue
         else:
-            if intel_name == "CREDIT_CARD":
-                if not luhn(match):
-                    # garbage number
-                    continue
             intel.add("%s:%s:%s" % (url, intel_name, match))
         for url in external:
             try:

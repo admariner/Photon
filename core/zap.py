@@ -11,10 +11,7 @@ def zap(input_url, archive, domain, host, internal, robots, proxies):
     """Extract links from robots.txt and sitemap.xml."""
     if archive:
         print('%s Fetching URLs from archive.org' % run)
-        if False:
-            archived_urls = time_machine(domain, 'domain')
-        else:
-            archived_urls = time_machine(host, 'host')
+        archived_urls = time_machine(host, 'host')
         print('%s Retrieved %i URLs from archive.org' % (
             good, len(archived_urls) - 1))
         for url in archived_urls:
@@ -25,9 +22,7 @@ def zap(input_url, archive, domain, host, internal, robots, proxies):
                             proxies=random.choice(proxies)).text
     # Making sure robots.txt isn't some fancy 404 page
     if '<body' not in response:
-        # If you know it, you know it
-        matches = re.findall(r'Allow: (.*)|Disallow: (.*)', response)
-        if matches:
+        if matches := re.findall(r'Allow: (.*)|Disallow: (.*)', response):
             # Iterating over the matches, match is a tuple here
             for match in matches:
                 # One item in match will always be empty so will combine both
@@ -42,12 +37,13 @@ def zap(input_url, archive, domain, host, internal, robots, proxies):
                     robots.add(url)
             print('%s URLs retrieved from robots.txt: %s' % (good, len(robots)))
     # Makes request to sitemap.xml
-    response = requests.get(input_url + '/sitemap.xml',
-                            proxies=random.choice(proxies)).text
+    response = requests.get(
+        f'{input_url}/sitemap.xml', proxies=random.choice(proxies)
+    ).text
+
     # Making sure robots.txt isn't some fancy 404 page
     if '<body' not in response:
-        matches = xml_parser(response)
-        if matches: # if there are any matches
+        if matches := xml_parser(response):
             print('%s URLs retrieved from sitemap.xml: %s' % (
                 good, len(matches)))
             for match in matches:

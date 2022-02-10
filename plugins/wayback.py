@@ -16,7 +16,4 @@ def time_machine(host, mode):
     url = "http://web.archive.org/cdx/search?url=%s&matchType=%s&collapse=urlkey&fl=original&filter=mimetype:text/html&filter=statuscode:200&output=json&from=%s&to=%s" % (host, mode, fro, to)
     response = get(url).text
     parsed = json.loads(response)[1:]
-    urls = []
-    for item in parsed:
-        urls.append(item[0])
-    return urls
+    return [item[0] for item in parsed]

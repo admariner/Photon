@@ -12,9 +12,7 @@ def prompt(default=None):
             tmpfile.flush()
 
         child_pid = os.fork()
-        is_child = child_pid == 0
-
-        if is_child:
+        if is_child := child_pid == 0:
             os.execvp(editor, [editor, tmpfile.name])
         else:
             os.waitpid(child_pid, 0)
